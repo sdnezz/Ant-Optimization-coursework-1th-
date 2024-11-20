@@ -1,9 +1,7 @@
 import sys
 import networkx as nx
-import numpy as np
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QComboBox, QFileDialog, QLineEdit, QFormLayout, QGroupBox
 import pyqtgraph as pg
-
+from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QComboBox, QFileDialog, QLineEdit, QFormLayout, QGroupBox
 
 class GraphWindow(QWidget):
     def __init__(self):
@@ -14,6 +12,9 @@ class GraphWindow(QWidget):
 
         # Главный Layout
         self.layout = QVBoxLayout(self)
+
+        # Загрузка стилей из файла
+        self.load_styles("styles.qss")
 
         # Изначально граф пустой
         self.graph = nx.Graph()
@@ -27,6 +28,11 @@ class GraphWindow(QWidget):
         self.plot_widget = pg.PlotWidget()
         self.layout.addWidget(self.plot_widget)
         self.plot_widget.setBackground('w')  # Устанавливаем белый фон для графика
+
+    def load_styles(self, style_file):
+        """Загружает стили из указанного файла."""
+        with open(style_file, "r") as file:
+            self.setStyleSheet(file.read())
 
     def create_controls(self):
         controls_layout = QFormLayout()
@@ -75,7 +81,6 @@ class GraphWindow(QWidget):
         file_name, _ = QFileDialog.getOpenFileName(self, 'Открыть файл графа', '', 'Text Files (*.txt);;All Files (*)')
 
         if file_name:
-            print("Загрузка нового графа")
             self.graph = self.load_graph_from_file(file_name)
             self.initialize_pheromones()
             self.update_start_node_combo()
@@ -99,15 +104,14 @@ class GraphWindow(QWidget):
 
     def update_start_node_combo(self):
         self.start_node_combo.clear()
-        for node in sorted(self.graph.nodes):  # Сортируем узлы по порядку
+        for node in sorted(self.graph.nodes):
             self.start_node_combo.addItem(str(node))
 
     def get_start_node(self):
-        """Получает текущую начальную точку из выпадающего списка."""
         current_text = self.start_node_combo.currentText()
         if current_text:
-            return int(current_text)  # Преобразуем в int, если не пустое значение
-        return None  # Если список пуст
+            return int(current_text)
+        return None
 
     def update_start_node(self):
         self.start_node = self.get_start_node()
@@ -116,32 +120,39 @@ class GraphWindow(QWidget):
 
     def reset_graph(self):
         self.load_graph()
-        print("Сброс графа и параметров")
 
     def update_canvas(self):
         """Очищает и перерисовывает граф на виджете pyqtgraph."""
-        self.plot_widget.clear()  # Очистка текущего графика
+        self.plot_widget.clear()
 
-        pos = nx.spring_layout(self.graph)  # Позиции для узлов
+        pos = nx.spring_layout(self.graph)  # Расположение узлов
         edges = self.graph.edges(data=True)
 
         # Отрисовка рёбер
         for u, v, data in edges:
             x = [pos[u][0], pos[v][0]]
             y = [pos[u][1], pos[v][1]]
-            line = pg.PlotCurveItem(x, y, pen=pg.mkPen('b', width=2))  # Синие линии для рёбер
+            line = pg.PlotCurveItem(x, y, pen=pg.mkPen('gray', width=2))  # Серые рёбра
             self.plot_widget.addItem(line)
+
+            # Добавляем текст для расстояния
+            mid_x = (pos[u][0] + pos[v][0]) / 2
+            mid_y = (pos[u][1] + pos[v][1]) / 2
+            distance_text = pg.TextItem(str(data['weight']), anchor=(0.5, 0.5), color='black')
+            distance_text.setFont(pg.QtGui.QFont("Arial", 10, pg.QtGui.QFont.Bold))
+            distance_text.setPos(mid_x, mid_y)
+            self.plot_widget.addItem(distance_text)
 
         # Отрисовка узлов
         for node in self.graph.nodes:
             x, y = pos[node]
-            color = 'orange' if node == self.start_node else 'lightblue'
+            color = '#6fcf97' if node == self.start_node else '#eb5757'  # Зеленый для начальной вершины, красный для остальных
             scatter = pg.ScatterPlotItem([x], [y], symbol='o', size=30, brush=color)
             self.plot_widget.addItem(scatter)
 
-            # Добавляем текстовые метки внутри узлов
-            text = pg.TextItem(str(node), anchor=(0.5, 0.5), color='k')  # Черный жирный текст
-            text.setFont(pg.QtGui.QFont("Arial", 12, pg.QtGui.QFont.Bold))  # Устанавливаем шрифт
+            # Текст внутри узлов
+            text = pg.TextItem(str(node), anchor=(0.5, 0.5), color='white')
+            text.setFont(pg.QtGui.QFont("Arial", 12, pg.QtGui.QFont.Bold))
             text.setPos(x, y)
             self.plot_widget.addItem(text)
 

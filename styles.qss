@@ -1,0 +1,57 @@
+/* Общий фон приложения */
+QWidget {
+    background-color: #f9f0ff; /* Нежно-фиолетовый фон */
+}
+
+/* Стили кнопок */
+QPushButton {
+    background-color: #7d57c1; /* Насыщенный фиолетовый */
+    color: white;
+    font-size: 14px;
+    font-weight: bold;
+    border-radius: 10px;
+    padding: 5px;
+    border: 1px solid #5c3e99;
+}
+QPushButton:hover {
+    background-color: #5c3e99; /* Темный фиолетовый при наведении */
+}
+QPushButton:pressed {
+    background-color: #4a2f7a;
+}
+
+/* Стили для полей ввода и выпадающих списков */
+QLineEdit, QComboBox {
+    border: 2px solid #7d57c1;
+    border-radius: 5px;
+    padding: 3px;
+    font-size: 14px;
+    background-color: #ffffff; /* Белый фон */
+    color: #333333; /* Темно-серый текст */
+}
+
+/* Стили для блока настройки алгоритма */
+QGroupBox {
+    background-color: #ece4f7; /* Светло-фиолетовый фон */
+    border: 2px solid #7d57c1; /* Фиолетовая обводка */
+    border-radius: 10px;
+    margin-top: 20px;
+    padding: 15px;
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    padding: 0 10px;
+    background-color: #7d57c1;
+    color: white;
+    font-size: 14px;
+    font-weight: bold; /* Жирный текст заголовка */
+    border-radius: 5px;
+}
+
+/* Стили для надписей в настройках алгоритма */
+QLabel {
+    color: #333333; /* Темно-серый текст */
+    font-size: 14px;
+    font-weight: bold; /* Жирный шрифт */
+}
