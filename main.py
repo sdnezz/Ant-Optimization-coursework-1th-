@@ -1,6 +1,7 @@
 import sys
 import networkx as nx
 import pyqtgraph as pg
+from ant_colony import AntColonyAlgorithm
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QComboBox, QFileDialog, QLineEdit, QFormLayout, QGroupBox
 
 class GraphWindow(QWidget):
@@ -18,6 +19,7 @@ class GraphWindow(QWidget):
 
         # Изначально граф пустой
         self.graph = nx.Graph()
+        self.ant_colony = None  # Экземпляр муравьиного алгоритма
         self.start_node = None
 
         # Инициализация элементов интерфейса
@@ -45,11 +47,13 @@ class GraphWindow(QWidget):
         # Параметры алгоритма
         self.evaporation_rate_input = QLineEdit("0.5", self)
         self.pheromone_intensity_input = QLineEdit("1.0", self)
-        self.num_ants_input = QLineEdit("10", self)
+        self.alpha_input = QLineEdit("1", self)
+        self.beta_input = QLineEdit("2", self)
 
         controls_layout.addRow("Коэффициент испарения:", self.evaporation_rate_input)
         controls_layout.addRow("Интенсивность феромонов:", self.pheromone_intensity_input)
-        controls_layout.addRow("Количество муравьёв:", self.num_ants_input)
+        controls_layout.addRow("Вес феромонов (alpha):", self.alpha_input)
+        controls_layout.addRow("Вес расстояния (beta):", self.beta_input)
 
         controls_group = QGroupBox("Настройки алгоритма")
         controls_group.setLayout(controls_layout)
@@ -63,6 +67,7 @@ class GraphWindow(QWidget):
         buttons_layout.addWidget(self.load_button)
 
         self.start_button = QPushButton('Запуск')
+        self.start_button.clicked.connect(self.start_algorithm)
         buttons_layout.addWidget(self.start_button)
 
         self.stop_button = QPushButton('Остановка')
@@ -73,11 +78,13 @@ class GraphWindow(QWidget):
         buttons_layout.addWidget(self.reset_button)
 
         self.update_params_button = QPushButton('Изменить параметры')
+        self.update_params_button.clicked.connect(self.update_parameters)
         buttons_layout.addWidget(self.update_params_button)
 
         self.layout.addLayout(buttons_layout)
 
     def load_graph(self):
+        """Загрузка графа из файла."""
         file_name, _ = QFileDialog.getOpenFileName(self, 'Открыть файл графа', '', 'Text Files (*.txt);;All Files (*)')
 
         if file_name:
@@ -88,6 +95,7 @@ class GraphWindow(QWidget):
             self.update_canvas()
 
     def load_graph_from_file(self, file_path):
+        """Загрузка графа из файла."""
         G = nx.Graph()
         try:
             with open(file_path, 'r') as file:
@@ -99,6 +107,7 @@ class GraphWindow(QWidget):
         return G
 
     def initialize_pheromones(self):
+        """Инициализация феромонов на всех рёбрах графа."""
         for u, v in self.graph.edges:
             self.graph[u][v]['pheromone'] = 1.0
 
@@ -108,6 +117,7 @@ class GraphWindow(QWidget):
             self.start_node_combo.addItem(str(node))
 
     def get_start_node(self):
+        """Получает текущую начальную точку из выпадающего списка."""
         current_text = self.start_node_combo.currentText()
         if current_text:
             return int(current_text)
@@ -118,28 +128,52 @@ class GraphWindow(QWidget):
         if self.start_node is not None:
             self.update_canvas()
 
+    def update_parameters(self):
+        """Обновляет параметры алгоритма."""
+        self.evaporation_rate = float(self.evaporation_rate_input.text())
+        self.pheromone_intensity = float(self.pheromone_intensity_input.text())
+        self.alpha = int(self.alpha_input.text())
+        self.beta = int(self.beta_input.text())
+
+    def start_algorithm(self):
+        """Запуск муравьиного алгоритма."""
+        self.update_parameters()
+        self.ant_colony = AntColonyAlgorithm(
+            graph=self.graph,
+            evaporation_rate=self.evaporation_rate,
+            pheromone_intensity=self.pheromone_intensity,
+            alpha=self.alpha,
+            beta=self.beta
+        )
+        # Пример работы алгоритма (с реальной логикой добавим позже)
+        print("Алгоритм запущен.")
+        current_node = self.start_node
+        probabilities = self.ant_colony.calculate_probabilities(current_node, visited_nodes=[current_node])
+        print("Вероятности переходов:", probabilities)
+
     def reset_graph(self):
+        """Сбрасывает граф и параметры к начальному состоянию."""
         self.load_graph()
 
     def update_canvas(self):
         """Очищает и перерисовывает граф на виджете pyqtgraph."""
         self.plot_widget.clear()
 
-        pos = nx.spring_layout(self.graph)  # Расположение узлов
+        pos = nx.spring_layout(self.graph)  # Позиции для узлов
         edges = self.graph.edges(data=True)
 
         # Отрисовка рёбер
         for u, v, data in edges:
             x = [pos[u][0], pos[v][0]]
             y = [pos[u][1], pos[v][1]]
-            line = pg.PlotCurveItem(x, y, pen=pg.mkPen('gray', width=2))  # Серые рёбра
+            line = pg.PlotCurveItem(x, y, pen=pg.mkPen('gray', width=2))  # Серые линии для рёбер
             self.plot_widget.addItem(line)
 
             # Добавляем текст для расстояния
             mid_x = (pos[u][0] + pos[v][0]) / 2
             mid_y = (pos[u][1] + pos[v][1]) / 2
-            distance_text = pg.TextItem(str(data['weight']), anchor=(0.5, 0.5), color='black')
-            distance_text.setFont(pg.QtGui.QFont("Arial", 10, pg.QtGui.QFont.Bold))
+            distance_text = pg.TextItem(str(data['weight']), anchor=(0.5, 0.5), color='black')  # Черный текст
+            distance_text.setFont(pg.QtGui.QFont("Arial", 10, pg.QtGui.QFont.Bold))  # Устанавливаем шрифт
             distance_text.setPos(mid_x, mid_y)
             self.plot_widget.addItem(distance_text)
 
@@ -155,7 +189,6 @@ class GraphWindow(QWidget):
             text.setFont(pg.QtGui.QFont("Arial", 12, pg.QtGui.QFont.Bold))
             text.setPos(x, y)
             self.plot_widget.addItem(text)
-
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
