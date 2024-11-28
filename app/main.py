@@ -1,7 +1,7 @@
 import sys
 import networkx as nx
 import pyqtgraph as pg
-from ant_colony import AntColonyAlgorithm
+from app.model.ant_colony import AntColonyAlgorithm
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QComboBox, QFileDialog, QLineEdit, QFormLayout, QGroupBox
 from PyQt5.QtCore import QTimer
 
@@ -53,10 +53,10 @@ class GraphWindow(QWidget):
         controls_layout.addRow("Конечная точка:", self.end_node_combo)
 
         # Параметры алгоритма
-        self.evaporation_rate_input = QLineEdit("0.5", self)
+        self.evaporation_rate_input = QLineEdit("1.3", self)
         self.pheromone_intensity_input = QLineEdit("1.0", self)
-        self.alpha_input = QLineEdit("1", self)
-        self.beta_input = QLineEdit("2", self)
+        self.alpha_input = QLineEdit("2", self)
+        self.beta_input = QLineEdit("1", self)
         self.num_ants_input = QLineEdit("10", self)
 
         controls_layout.addRow("Коэффициент испарения:", self.evaporation_rate_input)
