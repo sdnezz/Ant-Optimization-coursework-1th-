@@ -1,6 +1,7 @@
+import networkx as nx
 import random
-import numpy as np
-
+import sys
+import pyqtgraph as pg
 
 class AntColonyAlgorithm:
     def __init__(self, graph, evaporation_rate, pheromone_intensity, alpha, beta):
@@ -9,108 +10,59 @@ class AntColonyAlgorithm:
         self.pheromone_intensity = pheromone_intensity
         self.alpha = alpha
         self.beta = beta
+        self.pheromones = {edge: 1.0 for edge in self.graph.edges}  # начальные феромоны на рёбрах
+        self.num_ants = 10  # по умолчанию 10 муравьёв
 
-    def calculate_path_length(self, path):
-        """Вычисляет длину пути."""
-        return sum(self.graph[u][v]['weight'] for u, v in zip(path, path[1:]))
+    def initialize_graph(self, edges_data):
+        """Инициализируем граф с рёбрами, на которых будет время."""
+        for u, v, data in edges_data:
+            self.graph.add_edge(u, v, weight=data['time'])  # вес рёбер — это время
+            self.pheromones[(u, v)] = 1.0  # начальный феромон
 
-    def generate_ant_path(self, start_node, end_node):
-        """Генерация пути для одного муравья."""
+    def select_next_node(self, current_node, visited_nodes):
+        """Выбирает следующий узел на основе феромонов и времени."""
+        neighbors = list(self.graph.neighbors(current_node))
+        probabilities = []
+
+        total_pheromone = sum(self.pheromones[(current_node, neighbor)] ** self.alpha /
+                              (self.graph[current_node][neighbor]['weight'] ** self.beta)
+                              for neighbor in neighbors if neighbor not in visited_nodes)
+
+        for neighbor in neighbors:
+            if neighbor not in visited_nodes:
+                pheromone = self.pheromones.get((current_node, neighbor), 1.0) ** self.alpha
+                distance = self.graph[current_node][neighbor]['weight'] ** self.beta
+                probability = pheromone / distance if total_pheromone > 0 else 0
+                probabilities.append((neighbor, probability))
+
+        # Выбираем следующий узел на основе вероятностей
+        next_node = random.choices([node for node, _ in probabilities], [prob for _, prob in probabilities])[0]
+        return next_node
+
+    def update_pheromones(self, all_paths):
+        """Обновляем феромоны на рёбрах."""
+        for path in all_paths:
+            path_length = sum(self.graph[path[i]][path[i + 1]]['weight'] for i in range(len(path) - 1))
+            pheromone_deposit = 1.0 / path_length  # Добавление феромонов зависит от длины пути
+            for i in range(len(path) - 1):
+                edge = (path[i], path[i + 1])
+                if edge not in self.pheromones:
+                    self.pheromones[edge] = 1.0  # Если нет, инициализируем с 1.0 феромонами
+                self.pheromones[edge] += pheromone_deposit  # Добавляем феромоны на ребро
+                # Для каждого пути создаем таймер, который будет уменьшать феромоны через заданное время
+                if edge not in self.path_timers:
+                    self.path_timers[edge] = time.time()
+
+    def move_ant(self, start_node, end_node):
+        """Движение муравья по графу"""
         current_node = start_node
         path = [current_node]
-        visited_nodes = {current_node}
+        visited_nodes = set(path)
 
         while current_node != end_node:
-            neighbors = list(self.graph.neighbors(current_node))
-            probabilities = self.calculate_probabilities(current_node, neighbors, visited_nodes)
-
-            if not probabilities:  # Если нет доступных узлов, тупик
-                return path
-
-            next_node = random.choices(neighbors, weights=probabilities)[0]
+            next_node = self.select_next_node(current_node, visited_nodes)
             path.append(next_node)
             visited_nodes.add(next_node)
             current_node = next_node
 
         return path
-
-    def run_iteration(self, num_ants, start_node, end_node=None):
-        all_paths = []
-        best_path = None
-        best_path_length = float('inf')
-
-        for _ in range(num_ants):
-            path, path_length = self.find_path(start_node, end_node)
-            all_paths.append((path, path_length))
-            if path_length < best_path_length:
-                best_path = path
-                best_path_length = path_length
-
-        return all_paths, best_path
-
-    def find_path(self, start_node, end_node=None):
-        current_node = start_node
-        visited_nodes = {current_node}
-        path = [current_node]
-        total_length = 0
-
-        while True:
-            if end_node is not None and current_node == end_node:
-                break
-
-            next_node = self.select_next_node(current_node, visited_nodes)
-            if next_node is None:  # Dead end
-                return path, float('inf')
-
-            visited_nodes.add(next_node)
-            path.append(next_node)
-            total_length += self.graph[current_node][next_node]['weight']
-            current_node = next_node
-
-        return path, total_length
-
-    def select_next_node(self, current_node, visited_nodes):
-        neighbors = [node for node in self.graph.neighbors(current_node) if node not in visited_nodes]
-
-        if not neighbors:
-            return None
-
-        probabilities = []
-        for neighbor in neighbors:
-            pheromone = self.graph[current_node][neighbor]['pheromone']
-            distance = self.graph[current_node][neighbor]['weight']
-            if distance == 0:  # Защита от деления на ноль
-                probabilities.append(0)
-            else:
-                probabilities.append((pheromone ** self.alpha) * ((1 / distance) ** self.beta))
-
-        probabilities = np.array(probabilities)
-        probabilities /= probabilities.sum()
-
-        return random.choices(neighbors, weights=probabilities, k=1)[0]
-
-    def update_pheromones(self, all_paths, best_path=None):
-        """Обновляет феромоны на основе пройденных путей."""
-        for u, v in self.graph.edges:
-            print(f"Before evaporation ({u}, {v}): {self.graph[u][v]['pheromone']}")  # Перед обновлением
-            self.graph[u][v]['pheromone'] *= (1 - self.evaporation_rate)
-
-        for path, path_length in all_paths:
-            for u, v in zip(path, path[1:]):
-                self.graph[u][v]['pheromone'] += self.pheromone_intensity / path_length
-                print(f"After update ({u}, {v}): {self.graph[u][v]['pheromone']}")  # После обновления
-
-        if best_path:
-            best_length = sum(self.graph[u][v]['weight'] for u, v in zip(best_path, best_path[1:]))
-            for u, v in zip(best_path, best_path[1:]):
-                self.graph[u][v]['pheromone'] += 2 * (self.pheromone_intensity / best_length)
-                print(f"Boost best path ({u}, {v}): {self.graph[u][v]['pheromone']}")  # Усиление лучшего пути
-
-    def evaporate_pheromones(self):
-        """Уменьшает феромон на всех рёбрах графа."""
-        for u, v in self.graph.edges:
-            self.graph[u][v]['pheromone'] *= (1 - self.evaporation_rate)
-            # Гарантируем, что феромон не опустится ниже минимального уровня
-            if self.graph[u][v]['pheromone'] < 0.1:
-                self.graph[u][v]['pheromone'] = 0.1
-
