@@ -37,6 +37,7 @@ QGroupBox {
     border-radius: 10px;
     margin-top: 20px;
     padding: 15px;
+    font-weight: bold;
 }
 QGroupBox::title {
     subcontrol-origin: margin;
@@ -54,4 +55,32 @@ QLabel {
     color: #333333; /* Темно-серый текст */
     font-size: 14px;
     font-weight: bold; /* Жирный шрифт */
+}
+/* Стиль для статус бара */
+QStatusBar {
+    background-color: #7d57c1; /* Фиолетовый фон статус бара */
+    color: white; /* Белый текст */
+    border-top: 2px solid #5c3e99; /* Более выраженная граница сверху */
+    font-size: 12px; /* Размер шрифта */
+    font-weight: bold; /* Жирный шрифт */
+    border-radius: 10px;
+    padding: 5px; /* Отступы для комфортного отображения текста */
+}
+
+/* Стиль для элемента в статус баре */
+QStatusBar::item {
+    border: none;
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+/* Стиль для сообщений в статус баре */
+QStatusBar::message {
+    font: bold 12px Arial;
+    color: #4CAF50; /* Зеленый для успешных сообщений */
+}
+
+QStatusBar::error {
+    font: bold 12px Arial;
+    color: #FF6347; /* Красный для ошибок */
 }

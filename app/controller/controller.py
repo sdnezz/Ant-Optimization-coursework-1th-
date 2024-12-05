@@ -2,155 +2,130 @@ import sys
 import time
 import networkx as nx
 import pyqtgraph as pg
-from app.view.window_view import GraphWindow
-from app.model.ant_colony import AntColonyAlgorithm
+import numpy as np
+import random
 from app.model.graph_model import GraphModel
-from app.model.ant import  Ant
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QComboBox, QFileDialog, QLineEdit, QFormLayout, QGroupBox
-from PyQt5.QtCore import QTimer
+from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QComboBox, QFileDialog, QLineEdit, QFormLayout, QGroupBox, QMessageBox
+from PyQt5.QtCore import QObject,QTimer
 
-class Controller:
-    def __init__(self, view, model):
-        self.view = view
-        self.model = model
-        self.num_ants = 10
-        self.iteration = 0
-        self.timer = None
-        self.global_timer = None  # Таймер для глобального уменьшения феромонов
-        self.acceleration = 0.3  # Коэффициент ускорения
-        self.start_time = time.time()
+class Controller(QObject):
+    """Класс контроллера, координирующий модель и представление."""
 
-
-        # Связываем действия в представлении с методами контроллера
-        self.view.load_button.clicked.connect(self.load_graph)
-        self.view.start_button.clicked.connect(self.start_algorithm)
-        self.view.stop_button.clicked.connect(self.stop_algorithm)
-        self.view.start_node_combo.currentIndexChanged.connect(self.update_start_node)
-        self.view.end_node_combo.currentIndexChanged.connect(self.update_end_node)
+    def __init__(self):
+        super().__init__()
+        # Инициализация модели и представления
+        self.model = GraphModel(self)  # Модель для работы с графом
+        # Таймер для симуляции работы алгоритма
+        self.timer = QTimer(self)
 
     def load_graph(self):
-        """Загружает граф из файла и обновляет интерфейс."""
-        file_name, _ = QFileDialog.getOpenFileName(self.view, 'Открыть файл графа', '','Text Files (*.txt);;All Files (*)')
-        if file_name:
-            # Загружаем граф из файла
-            graph = self.model.load_graph_from_file(file_name)
-            # Рассчитываем позиции узлов (spring_layout) и сохраняем их в модели
-            self.model.positions = nx.spring_layout(graph)
-            # Инициализация феромонов
-            self.model.initialize_pheromones()
-            # Обновляем модель и представление
-            self.model.graph = graph
-            self.view.update_start_node_combo()
-            self.view.update_end_node_combo()
-            # Немедленно обновляем канвас, чтобы отобразить граф
-            self.view.update_canvas()  # Обновляем граф на экране сразу после загрузки
+        """Загружает граф из файла и проверяет правильность формата."""
+        try:
+            file_name, _ = QFileDialog.getOpenFileName(self.model.view, 'Открыть файл графа', '',
+                                                       'Text Files (*.txt);;All Files (*)')
 
-    def start_algorithm(self):
-        """Запуск алгоритма муравьиной колонии."""
-        self.model.ant_colony = AntColonyAlgorithm(
-            graph=self.model.graph,
-            evaporation_rate=float(self.view.evaporation_rate_input.text()),
-            pheromone_intensity=float(self.view.pheromone_intensity_input.text()),
-            alpha=int(self.view.alpha_input.text()),
-            beta=int(self.view.beta_input.text())
-        )
-        self.num_ants = int(self.view.num_ants_input.text())
-        # Запуск глобального таймера для уменьшения феромонов
-        self.global_timer = QTimer()
-        self.global_timer.timeout.connect(self.update_pheromones_globally)
-        self.global_timer.start(1000)  # Таймер уменьшает феромоны каждую секунду
-        # Добавляем муравьёв
-        self.add_ants(self.num_ants)
-    def stop_algorithm(self):
-        """Остановка алгоритма."""
-        if self.timer and self.timer.isActive():
-            self.timer.stop()
-        if self.global_timer and self.global_timer.isActive():
-            self.global_timer.stop()  # Останавливаем глобальный таймер
+            if file_name:
+                G = nx.Graph()
+                with open(file_name, 'r') as file:
+                    for line in file:
+                        # Попробуем разделить строку на 3 компонента и проверить их на корректность
+                        parts = line.split()
+                        if len(parts) != 3:
+                            raise ValueError(
+                                f"Неверное количество элементов в строке: {line.strip()}. Ожидается 3 целочисленных элемента в каждой строке.")
 
-    # def run_iterations(self, acceleration):
-    #     """Запуск итераций алгоритма."""
-    #     self.iteration = 0
-    #     self.timer = QTimer()
-    #     self.timer.timeout.connect(lambda: self.run_single_iteration(acceleration))
-    #     self.timer.start(100)  # Итерации идут быстрее, например каждые 100мс
-    #
-    # def run_single_iteration(self):
-    #     """Обработка одной итерации муравьиной колонии."""
-    #     if self.iteration >= 20:  # Завершаем после 20 итераций
-    #         self.timer.stop()
-    #         return
-    #
-    #     all_paths = []
-    #     for _ in range(self.num_ants):
-    #         ant = Ant(self.model.graph, self.model.positions, acceleration=acceleration)
-    #         self.model.ants.append(ant)
-    #         path = ant.move()  # Двигаем муравья по графу
-    #         all_paths.append(path)
-    #
-    #     # Обновление феромонов на рёбрах
-    #     self.model.update_pheromones(all_paths)  # Обновляем феромоны на основе путей
-    #     self.view.update_canvas()  # Перерисовываем граф с феромонами
-    #     self.iteration += 1
+                        try:
+                            u, v, weight = map(int, parts)
+                        except ValueError:
+                            raise ValueError(f"Некорректные данные в строке: {line.strip()}. Ожидаются целые числа.")
 
-    # def update_pheromones(self, ants):
-    #     """Обновление феромонов на рёбрах"""
-    #     all_paths = [ant.path for ant in ants]  # Получаем все пути муравьёв
-    #     self.model.update_pheromones(all_paths)  # Обновляем феромоны на основе путей
+                        # Добавляем ребро в граф с весом и феромоном
+                        G.add_edge(u, v, weight=weight, pheromone=1.0)
 
-    def add_ants(self, num_ants):
-        """Добавление муравьёв в систему."""
-        for _ in range(num_ants):
-            ant = Ant(self.model.graph, self.model.positions, self.acceleration)
-            self.model.ants.append(ant)
-            # Теперь не используем метод start(), а сразу вызываем move()
-            self.timer = QTimer()
-            self.timer.timeout.connect(self.move_ants)
-            self.timer.start(100)  # Таймер для движения муравьёв, например, 100 мс
+                # Получаем вершины и сортируем их по возрастанию
+                sorted_nodes = sorted(G.nodes)
+                self.model.graph = G
+                self.model.start_node = sorted_nodes[0]  # Пример начальной точки
+                self.model.positions = nx.spring_layout(G)  # Генерация позиций узлов
+                self.model.graph_to_view(sorted_nodes)
+                self.set_parameters()
+                # Отображаем статус в статус-баре
+                self.model.view.status_bar.showMessage(f"Граф загружен: {file_name}")
+            else:
+                raise ValueError("Не выбран файл для загрузки.")
 
-    def move_ants(self):
-        """Двигаем всех муравьёв."""
-        all_paths = []
-        delta_time = time.time() - self.start_time  # Считаем время, прошедшее с последнего обновления
+        except Exception as e:
+            # Поймать любые исключения и вывести сообщение об ошибке
+            self.model.view.status_bar.showMessage(f"Ошибка загрузки графа: {e}")
+            self.show_error_message("Ошибка загрузки", f"Не удалось загрузить граф: {str(e)}")
 
-        for ant in self.model.ants:
-            path = ant.move(delta_time)  # Передаем время, прошедшее с последнего обновления
-            if path:  # Проверяем, что путь не пустой
-                all_paths.append(path)
+    def get_start_node(self):
+        current_text = self.model.view.start_node_combo.currentText()
+        return int(current_text) if current_text else None
 
-        # Обновляем феромоны на рёбрах
-        self.model.update_pheromones(all_paths)  # Обновляем феромоны на основе путей
-        self.view.update_canvas()  # Перерисовываем граф с феромонами
-
-        self.start_time = time.time()  # Обновляем время старта для следующего движения
-
-    def update_pheromones_globally(self):
-        """Глобальное уменьшение феромонов на рёбрах"""
-        self.model.update_pheromones_globally()  # Уменьшаем феромоны
-        self.view.update_canvas()  # Обновляем канвас
+    def get_end_node(self):
+        current_text = self.model.view.end_node_combo.currentText()
+        return int(current_text) if current_text else None
 
     def update_start_node(self):
-        """Обновление начальной вершины."""
-        start_node = self.view.start_node_combo.currentText()
-        if start_node:
-            self.model.start_node = int(start_node)
-        self.view.update_canvas()
+        """Обновить начальную точку в модели."""
+        self.model.start_node = self.get_start_node()
+        self.model.view.start_node = self.get_start_node()
+        self.model.view.update_canvas()
 
     def update_end_node(self):
-        """Обновление конечной вершины."""
-        end_node = self.view.end_node_combo.currentText()
-        if end_node:
-            self.model.end_node = int(end_node)
-        self.view.update_canvas()
+        """Обновить конечную точку в модели."""
+        self.model.end_node = self.get_end_node()
+        self.model.view.end_node = self.get_end_node()
+        self.model.view.update_canvas()
 
-    def update_start_node_combo(self):
-        """Обновляет комбобокс начальной вершины в представлении."""
-        self.view.start_node_combo.clear()
-        for node in sorted(self.model.graph.nodes):
-            self.view.start_node_combo.addItem(str(node))
+    def set_parameters(self):
+        """Обработчик для задания параметров."""
+        try:
+            # Получаем параметры из view
+            evaporation_rate = float(self.model.view.evaporation_rate_input.text())
+            pheromone_intensity = float(self.model.view.pheromone_intensity_input.text())
+            alpha = float(self.model.view.alpha_input.text())
+            beta = float(self.model.view.beta_input.text())
+            num_ants = int(self.model.view.num_ants_input.text())
 
-    def update_end_node_combo(self):
-        """Обновляет комбобокс конечной вершины в представлении."""
-        self.view.end_node_combo.clear()
-        for node in sorted(self.model.graph.nodes):
-            self.view.end_node_combo.addItem(str(node))
+            # Проверка на корректность значений
+            if evaporation_rate <= 0 or pheromone_intensity <= 0 or alpha <= 0 or beta <= 0 or num_ants <= 0:
+                raise ValueError("Все параметры должны быть положительными числами.")
+
+            # Передаем параметры в модель
+            self.model.evaporation_rate = evaporation_rate
+            self.model.pheromone_intensity = pheromone_intensity
+            self.model.alpha = alpha
+            self.model.beta = beta
+            self.model.num_ants = num_ants
+
+            # Выводим сообщение в статус-бар
+            self.model.view.status_bar.showMessage("Параметры алгоритма успешно заданы.")
+        except ValueError as e:
+            # Если возникла ошибка при преобразовании значения, показываем ошибку
+            self.model.view.status_bar.showMessage(f"Ошибка: {str(e)}")
+            self.show_error_message("Ошибка", f"Некорректные параметры: {str(e)}")
+        except Exception as e:
+            # Для любых других ошибок
+            self.model.view.status_bar.showMessage(f"Ошибка: {str(e)}")
+            self.show_error_message("Ошибка", f"Не удалось задать параметры: {str(e)}")
+
+    def show_error_message(self, title, message):
+        """Показывает окно с ошибкой."""
+        msg_box = QMessageBox(self.model.view)
+        msg_box.setIcon(QMessageBox.Critical)
+        msg_box.setText(message)
+        msg_box.setWindowTitle(title)
+        msg_box.exec_()
+
+    def run(self):
+        """Запуск приложения."""
+        self.model.set_view()
+        self.model.view.show()
+
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+    controller = Controller()
+    controller.run()
+    sys.exit(app.exec_())
