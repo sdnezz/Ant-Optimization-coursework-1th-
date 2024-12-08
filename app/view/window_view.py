@@ -2,16 +2,13 @@ import sys
 import networkx as nx
 import pyqtgraph as pg
 from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import QStatusBar,QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QComboBox, QFileDialog, QLineEdit, QFormLayout, QGroupBox
+from PyQt5.QtWidgets import QLabel,QStatusBar,QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QComboBox, QFileDialog, QLineEdit, QFormLayout, QGroupBox
 from PyQt5.QtCore import QTimer, QSize
 
 class GraphWindow(QWidget):
     def __init__(self, model):
         super().__init__()
         self.model = model  # GraphModel будет присваиваться через Controller
-        self.graph = nx.Graph()  # Граф передается из модели
-        self.start_node = None
-        self.end_node = None
 
         self.setWindowTitle('Поиск оптимального маршрута доставки клиентам')
         self.setGeometry(100, 100, 1150, 800)
@@ -21,6 +18,9 @@ class GraphWindow(QWidget):
         icon = QIcon()
         icon.addFile('ant_picture.png', QSize(64, 64))
         self.setWindowIcon(icon)
+        # Таймер отображения
+        self.time_label = QLabel("00:00:000", self)
+        self.layout.addWidget(self.time_label)
         # Создаем виджет для графика с использованием pyqtgraph
         self.plot_widget = pg.PlotWidget()
         self.layout.addWidget(self.plot_widget)
@@ -43,9 +43,19 @@ class GraphWindow(QWidget):
         self.start_node_combo = QComboBox(self)
         controls_layout.addRow("Начальная точка:", self.start_node_combo)
 
-        # Конечная точка
-        self.end_node_combo = QComboBox(self)
-        controls_layout.addRow("Конечная точка:", self.end_node_combo)
+        # Конечные точки и кнопка "Ок"
+        self.end_nodes_input = QLineEdit(self)
+        self.end_nodes_input.setPlaceholderText("Введите конечные точки через запятую")
+
+        self.set_end_nodes_button = QPushButton("Ок", self)
+        self.set_end_nodes_button.clicked.connect(self.model.controller.update_end_nodes)
+
+        # Мы используем QHBoxLayout, чтобы разместить кнопку рядом с полем ввода
+        end_nodes_layout = QHBoxLayout()
+        end_nodes_layout.addWidget(self.end_nodes_input)
+        end_nodes_layout.addWidget(self.set_end_nodes_button)
+
+        controls_layout.addRow("Конечные точки:", end_nodes_layout)
 
         # Параметры алгоритма
         self.evaporation_rate_input = QLineEdit("1.3", self)
@@ -79,6 +89,9 @@ class GraphWindow(QWidget):
         self.stop_button = QPushButton('Остановка')
         buttons_layout.addWidget(self.stop_button)
 
+        self.reset_button = QPushButton('Сброс')
+        buttons_layout.addWidget(self.reset_button)
+
         self.layout.addLayout(buttons_layout)
 
     def update_start_node_combo(self, nodes):
@@ -87,18 +100,11 @@ class GraphWindow(QWidget):
         for node in nodes:
             self.start_node_combo.addItem(str(node))
 
-    def update_end_node_combo(self, nodes):
-        """Обновляет список доступных конечных точек."""
-        self.end_node_combo.clear()
-        for node in nodes:
-            self.end_node_combo.addItem(str(node))
-
     def update_canvas(self):
         """Очищает и перерисовывает граф на виджете pyqtgraph."""
         self.plot_widget.clear()
         pos = self.model.positions  # Получаем позиции из модели
-        self.graph = self.model.graph
-        edges = self.graph.edges(data=True)
+        edges = self.model.graph.edges(data=True)
 
         # Отрисовка рёбер с учетом феромонов
         for u, v, data in edges:
@@ -122,10 +128,10 @@ class GraphWindow(QWidget):
         for node in self.model.graph.nodes:
             x, y = pos[node]
             color = '#eb5757'  # Красный для всех узлов, кроме стартового и конечного
-            if node == self.start_node:
+            if node == self.model.start_node:
                 color = '#6fcf97'  # Зеленый для стартового узла
-            elif node == self.end_node:
-                color = '#f2994a'  # Оранжевый для конечного узла
+            elif node in self.model.end_nodes:  # Проверяем, является ли узел конечной точкой
+                color = '#f2994a'
 
             scatter = pg.ScatterPlotItem([x], [y], symbol='o', size=30, brush=color)
             self.plot_widget.addItem(scatter)

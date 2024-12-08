@@ -7,7 +7,7 @@ class GraphModel:
         self.graph = None
         self.positions = {}
         self.start_node = None
-        self.end_node = None
+        self.end_nodes = set()
         self.controller = controller
         self.view = None
         self.evaporation_rate = None
@@ -16,13 +16,15 @@ class GraphModel:
         self.num_ants = None
 
     def setup_connections(self):
-         """Связывает сигналы интерфейса с действиями контроллера."""
-         self.view.start_node_combo.currentIndexChanged.connect(self.controller.update_start_node)
-         self.view.end_node_combo.currentIndexChanged.connect(self.controller.update_end_node)
-         self.view.set_param_button.clicked.connect(self.controller.set_parameters)
-         self.view.load_button.clicked.connect(self.controller.load_graph)
-         # self.view.start_button.clicked.connect(self.controller.start_algorithm)
-         # self.view.stop_button.clicked.connect(self.controller.stop_algorithm)
+        """Связывает сигналы интерфейса с действиями контроллера."""
+        self.view.start_node_combo.currentIndexChanged.connect(self.controller.update_start_node)
+        self.view.set_end_nodes_button.clicked.connect(self.controller.update_end_nodes)
+        self.view.set_param_button.clicked.connect(self.controller.set_parameters)
+        self.view.load_button.clicked.connect(self.controller.load_graph)
+        self.view.start_button.clicked.connect(self.controller.start_algorithm)
+        self.view.stop_button.clicked.connect(self.controller.stop_algorithm)
+        self.view.reset_button.clicked.connect(self.controller.reset_graph)
+
 
     def set_view(self):
         self.view = GraphWindow(self)
@@ -31,16 +33,7 @@ class GraphModel:
 
     def graph_to_view(self, nodes):
         self.view.update_start_node_combo(nodes)
-        self.view.update_end_node_combo(nodes)
         self.view.update_canvas()
-
-    def update_start_node(start_node):
-        """Передает начальную в контроллер."""
-        self.controller.update_start_node(start_node)
-
-    def update_end_node(end_node):
-        """Передает конечную точку в контроллер."""
-        self.controller.update_end_node(end_node)
 
     def initialize_pheromones(self):
         """Инициализация феромонов для всех рёбер графа."""
