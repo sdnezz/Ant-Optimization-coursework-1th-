@@ -112,7 +112,7 @@ class GraphWindow(QWidget):
             weight = data['weight']
             line = pg.PlotCurveItem(
                 [pos[u][0], pos[v][0]], [pos[u][1], pos[v][1]],
-                pen=pg.mkPen(color=(200, 200, 200), width=2)
+                pen=pg.mkPen(color=(200, 200, 200), width=pheromone * 5)  # Толщина линии пропорциональна феромонам
             )
             self.plot_widget.addItem(line)
 

@@ -3,9 +3,8 @@ import time
 import networkx as nx
 import pyqtgraph as pg
 import numpy as np
-import random
 from app.model.graph_model import GraphModel
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QComboBox, QFileDialog, QLineEdit, QFormLayout, QGroupBox, QMessageBox
+from PyQt5.QtWidgets import QApplication, QMessageBox, QFileDialog
 from PyQt5.QtCore import QObject,QTimer
 
 
@@ -177,6 +176,7 @@ class Controller(QObject):
             self.running = True
             self.start_time = time.time()  # Фиксируем время старта
             self.timer.start(10)  # Обновляем каждую десятую миллисекунду
+            self.model.run_aco()
             self.model.view.status_bar.showMessage("Алгоритм запущен.")
 
     def stop_algorithm(self):
